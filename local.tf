@@ -91,3 +91,7 @@ module "kube" {
 output "url" {
   value = "http://${module.infra.lb_dns_name}"
 }
+
+output "nameservers" {
+  value = "http://${module.infra.aws_route53_zone.costah_dev.name_servers}"
+}

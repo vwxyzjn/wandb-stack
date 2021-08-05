@@ -8,6 +8,10 @@ provider "aws" {
   region = var.aws_region
 }
 
+resource "aws_route53_zone" "costah_dev" {
+  name = "costah.dev"
+}
+
 ##########################################
 # Variables
 ##########################################
