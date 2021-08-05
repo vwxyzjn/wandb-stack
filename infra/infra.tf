@@ -17,6 +17,59 @@ output "name_servers" {
 }
 
 ##########################################
+# DNS records
+##########################################
+
+resource "aws_route53_record" "wandb" {
+  zone_id = aws_route53_zone.costah_dev.zone_id
+  name    = "wandb.costah.dev"
+  type    = "CNAME"
+  ttl     = "60"
+  records = ["${aws_lb.wandb.dns_name}"]
+}
+
+resource "aws_acm_certificate" "costah_dev" {
+  domain_name = aws_route53_zone.costah_dev.name
+  subject_alternative_names = [
+    "*.${aws_route53_zone.costah_dev.name}",
+    "wandb.${aws_route53_zone.costah_dev.name}",
+  ]
+  validation_method = "DNS"
+
+  # Recommended by Terraform to make live-swaps smooth
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = {
+    Name = "curaihealth-certificate"
+  }
+}
+
+resource "aws_route53_record" "costah_dev" {
+  for_each = {
+    for dvo in aws_acm_certificate.costah_dev.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = aws_route53_zone.costah_dev.zone_id
+}
+
+resource "aws_acm_certificate_validation" "costah_dev" {
+  certificate_arn         = aws_acm_certificate.costah_dev.arn
+  validation_record_fqdns = [for record in aws_route53_record.costah_dev : record.fqdn]
+}
+
+
+##########################################
 # Variables
 ##########################################
 
@@ -453,13 +506,33 @@ resource "aws_lb_target_group" "wandb_tg" {
   }
 }
 
+# HTTP redirect listener
 resource "aws_lb_listener" "wandb_listener" {
   load_balancer_arn = aws_lb.wandb.arn
-  port              = "80"
+  port              = 80
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+# ALB default HTTPS backend
+resource "aws_lb_listener" "wandb_https_listener" {
+  load_balancer_arn = aws_lb.wandb.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = aws_acm_certificate_validation.costah_dev.certificate_arn
+
+  default_action {
+    type = "forward"
     target_group_arn = aws_lb_target_group.wandb_tg.arn
   }
 }
