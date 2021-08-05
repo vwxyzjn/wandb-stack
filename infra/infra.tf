@@ -12,6 +12,10 @@ resource "aws_route53_zone" "costah_dev" {
   name = "costah.dev"
 }
 
+output "name_servers" {
+  value = aws_route53_zone.costah_dev.name_servers
+}
+
 ##########################################
 # Variables
 ##########################################

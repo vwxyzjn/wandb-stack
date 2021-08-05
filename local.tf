@@ -93,5 +93,5 @@ output "url" {
 }
 
 output "nameservers" {
-  value = "http://${module.infra.aws_route53_zone.costah_dev.name_servers}"
+  value = "http://${module.infra.name_servers}"
 }
