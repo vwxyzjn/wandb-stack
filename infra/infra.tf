@@ -42,7 +42,7 @@ resource "aws_acm_certificate" "costah_dev" {
   }
 
   tags = {
-    Name = "curaihealth-certificate"
+    Name = "wandb-costah-certificate"
   }
 }
 
